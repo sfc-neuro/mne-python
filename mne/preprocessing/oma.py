@@ -1,12 +1,14 @@
 from ..utils import verbose, _check_preload
 from ..io.pick import _picks_to_idx
+from ..parallel import parallel_func
+
 import numpy as np
-from ..io import RawArray
+
 
 @verbose
 def fix_grad_artifact(raw, slices_per_volume, n_iter,
                       slice_duration='auto', picks='eeg', copy=True,
-                      verbose=True):
+                      n_jobs=1, verbose=True):
     """Remove fMRI gradient artifact using OMA filter.
 
     Use the Optimized Moving Average algorithm to remove the gradient artifact
@@ -29,6 +31,7 @@ def fix_grad_artifact(raw, slices_per_volume, n_iter,
     copy : bool
         Wether to make a copy of the data or operate in place.
         Defaults to True.
+    %(n_jobs)s
     %(verbose)s
 
     Returns
@@ -55,12 +58,18 @@ def fix_grad_artifact(raw, slices_per_volume, n_iter,
             ((1 - z**(-1)) * (1 - z)))
     filt[z == 1+0j] = 0  # fix divide by zero cases
     filt = 1 - (1 - filt)**n_iter
-    for channel in picks:
+
+    def filt_channel(channel):
+        """Apply the filter to a single channel."""
         signal = raw._data[channel]
         signal_fft = np.fft.fft(signal)
         signal_fft = filt * signal_fft
 
         signal = np.fft.ifft(signal_fft)
         raw._data[channel] = signal
+
+    parallel, my_filt_func, _ = parallel_func(filt_channel, n_jobs,
+                                              verbose=verbose)
+    parallel(my_filt_func(channel) for channel in picks)
 
     return raw
