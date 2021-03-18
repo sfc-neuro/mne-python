@@ -6,8 +6,8 @@ import numpy as np
 
 
 @verbose
-def fix_grad_artifact(raw, slices_per_volume, n_iter,
-                      slice_duration='auto', picks='eeg', copy=True,
+def fix_grad_artifact(raw, slices_per_volume, n_iter, n_cascades,
+                      slice_duration='auto', TR='auto', picks='eeg', copy=True,
                       n_jobs=1, verbose=True):
     """Remove fMRI gradient artifact using OMA filter.
 
@@ -25,8 +25,12 @@ def fix_grad_artifact(raw, slices_per_volume, n_iter,
     n_iter : int
         The number of iterations of the filter. The more iteration, the
         tighter the filter. Defaults to [FIXME]
+    n_cascades : int
+        The number of cascades of the filter. Defaults to [FIXME]
     slice_duration : float | 'auto'
         Slice duration in seconds - default to Auto.
+    TR : float | 'auto'
+        Repetition time between two volumes in seconds - defaults to Auto. 
     %(picks_base)s all EEG channels.
     copy : bool
         Wether to make a copy of the data or operate in place.
@@ -48,26 +52,31 @@ def fix_grad_artifact(raw, slices_per_volume, n_iter,
     picks = _picks_to_idx(raw.info, picks, 'eeg', exclude=('bads'))
     if copy:
         raw = raw.copy()
-
-    # The filter is described in formula 12, 15 and 16 in the paper.
-    # In order to transcribe these formulas directly into python code, we set up
-    # the variables used in the formulas first.
-    N = len(raw.times)
-    k = np.arange(N)
-    z = np.exp(1j * 2 * np.pi * k / N)
-    M = slice_duration
-    J = n_iter
-    L = 1  # n_cascades
     
-    # Formula 12
-    filt = (1 / M**2) * (1 - z**(-M)) * (1 - z**M) / ((1 - z**(-1)) * (1 - z))
-    filt[z == 1+0j] = 0  # fix divide by zero cases
+    def OMA(M):
+        # The filter is described in formula 12, 15 and 16 in the paper.
+        # In order to transcribe these formulas directly into python code, we set up
+        # the variables used in the formulas first.
+        N = len(raw.times)
+        k = np.arange(N)
+        z = np.exp(1j * 2 * np.pi * k / N)
 
-    # Formula 15
-    filt = 1 - (1 - filt) ** J
-
-    # Formula 16
-    filt = filt ** L
+        J = n_iter
+        L = n_cascades
+        
+        # Formula 12
+        filt = (1 / M**2) * (1 - z**(-M)) * (1 - z**M) / ((1 - z**(-1)) * (1 - z))
+        filt[z == 1+0j] = 0  # fix divide by zero cases
+        
+        # Formula 15
+        filt = 1 - (1 - filt) ** J
+        
+        # Formula 16
+        filt = filt ** L
+        return filt
+    
+    filt = OMA(slice_duration)
+    filt *= OMA(TR)
 
     def filt_channel(channel):
         """Apply the filter to a single channel."""
