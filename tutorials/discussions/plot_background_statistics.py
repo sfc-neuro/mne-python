@@ -41,6 +41,9 @@ print(__doc__)
 # some probability (e.g., p < 0.05). This probability is also called the
 # significance level :math:`\alpha`.
 # To think about what this means, let's follow the illustrative example from
+# :footcite:`RidgwayEtAl2012` and construct a toy dataset consisting of a 40 x 40 square with a
+# "signal" present in the center with white noise added and a Gaussian
+# smoothing kernel applied.
 # :footcite:`RidgwayEtAl2012` and construct a toy dataset consisting of a
 # 40 x 40 square with a "signal" present in the center with white noise added
 # and a Gaussian smoothing kernel applied.
@@ -168,6 +171,7 @@ plot_t_p(ts[-1], ps[-1], titles[-1], mccs[-1])
 # "Hat" variance adjustment
 # ~~~~~~~~~~~~~~~~~~~~~~~~~
 # The "hat" technique regularizes the variance values used in the t-test
+# calculation :footcite:`RidgwayEtAl2012` to compensate for implausibly small variances.
 # calculation :footcite:`RidgwayEtAl2012` to compensate for implausibly small
 # variances.
 ts.append(ttest_1samp_no_p(X, sigma=sigma))
