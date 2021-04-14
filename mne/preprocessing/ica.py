@@ -130,7 +130,7 @@ def _check_for_unsupported_ica_channels(picks, info, allow_ref_meg=False):
                          % (_pl(chs), chs, types))
 
 
-_KNOWN_ICA_METHODS = ('fastica', 'infomax', 'picard')
+_KNOWN_ICA_METHODS = ('fastica', 'infomax', 'picard', 'multiviewica')
 
 
 @fill_doc
@@ -380,6 +380,9 @@ class ICA(ContainsMixin):
         if method == 'picard' and not check_version('picard'):
             raise ImportError(
                 'The python-picard package is required for method="picard".')
+        if method == 'multiviewica' and not check_version('multiviewica'):
+            raise ImportError(
+                'The python-picard package is required for method="multiviewica".')
 
         self.noise_cov = noise_cov
 
@@ -429,6 +432,8 @@ class ICA(ContainsMixin):
                 max_iter = 1000
             elif method in ['infomax', 'picard']:
                 max_iter = 500
+            elif method == 'multiviewica':
+                max_iter = 1000
         fit_params.setdefault('max_iter', max_iter)
         self.max_iter = max_iter
         self.fit_params = fit_params
@@ -763,6 +768,14 @@ class ICA(ContainsMixin):
             self.unmixing_matrix_ = W
             self.n_iter_ = n_iter + 1  # picard() starts counting at 0
             del _, n_iter
+        elif self.method == 'multiviewica':
+            from multiviewica import multiviewica
+            _, W, _ = multiviewica(
+                data[:, sel], dimension_reduction="srm", random_state=random_state,
+                max_iter=max_iter
+            )
+            n_iter = None
+
         assert self.unmixing_matrix_.shape == (self.n_components_,) * 2
         norms = self.pca_explained_variance_
         stable = norms / norms[0] > 1e-6  # to be stable during pinv
